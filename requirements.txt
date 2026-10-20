@@ -1,0 +1,10 @@
+numpy==2.5.4
+pandas==3.0.6
+scipy==1.18.1
+matplotlib==3.11.2
+PyYAML==6.0.3
+gymnasium==1.4.0
+torch==2.14.1
+stable-baselines3==2.9.0
+sb3-contrib==2.9.0
+pytest==9.1.1

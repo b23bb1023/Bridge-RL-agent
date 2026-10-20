@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Raw NBI downloads are large; only processed outputs are versioned.
+data/raw/
+
+# Run artefacts. Final checkpoints, logs and figures are copied into models/ and results/.
+runs/
+*.log
+
+# LaTeX build files
+report/*.aux
+report/*.log
+report/*.out
+report/*.synctex.gz
+
+# macOS
+.DS_Store
