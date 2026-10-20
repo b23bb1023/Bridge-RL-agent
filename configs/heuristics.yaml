@@ -1,0 +1,135 @@
+budget_scale_1:
+  condition_based:
+    params:
+      inspect_every: 0
+      major_at: 2.6
+      minor_at: 1.6
+    tune_true_cost: 10642000.0
+    grid_size: 96
+  risk_greedy:
+    params:
+      min_benefit_per_dollar: 0.1
+    tune_true_cost: 10977000.0
+    grid_size: 8
+  entropy_triggered:
+    params:
+      entropy_at: 0.3
+      risk_at: 0.2
+      major_at: 0.2
+      minor_at: 0.2
+    tune_true_cost: 12518000.0
+    grid_size: 96
+  oracle_threshold:
+    params:
+      major_at: 3
+      minor_at: 2
+    tune_true_cost: 9619000.0
+    grid_size: 6
+budget_scale_0.5:
+  condition_based:
+    params:
+      inspect_every: 0
+      major_at: 1.8
+      minor_at: 1.6
+    tune_true_cost: 29979000.0
+    grid_size: 96
+  risk_greedy:
+    params:
+      min_benefit_per_dollar: 1.0
+    tune_true_cost: 21248000.0
+    grid_size: 8
+  entropy_triggered:
+    params:
+      entropy_at: 0.6
+      risk_at: 0.4
+      major_at: 0.2
+      minor_at: 0.3
+    tune_true_cost: 88022000.0
+    grid_size: 96
+  oracle_threshold:
+    params:
+      major_at: 3
+      minor_at: 3
+    tune_true_cost: 26513000.0
+    grid_size: 6
+budget_scale_0.75:
+  condition_based:
+    params:
+      inspect_every: 0
+      major_at: 2.2
+      minor_at: 2.0
+    tune_true_cost: 18750000.0
+    grid_size: 96
+  risk_greedy:
+    params:
+      min_benefit_per_dollar: 0.2
+    tune_true_cost: 15414000.0
+    grid_size: 8
+  entropy_triggered:
+    params:
+      entropy_at: 0.45
+      risk_at: 0.2
+      major_at: 0.2
+      minor_at: 0.3
+    tune_true_cost: 37438000.0
+    grid_size: 96
+  oracle_threshold:
+    params:
+      major_at: 3
+      minor_at: 3
+    tune_true_cost: 18686000.0
+    grid_size: 6
+budget_scale_1.5:
+  condition_based:
+    params:
+      inspect_every: 0
+      major_at: 2.6
+      minor_at: 1.2
+    tune_true_cost: 7121000.0
+    grid_size: 96
+  risk_greedy:
+    params:
+      min_benefit_per_dollar: 0.05
+    tune_true_cost: 7570000.0
+    grid_size: 8
+  entropy_triggered:
+    params:
+      entropy_at: 0.3
+      risk_at: 0.2
+      major_at: 0.2
+      minor_at: 0.2
+    tune_true_cost: 7135000.0
+    grid_size: 96
+  oracle_threshold:
+    params:
+      major_at: 3
+      minor_at: 2
+    tune_true_cost: 6419000.0
+    grid_size: 6
+budget_scale_2:
+  condition_based:
+    params:
+      inspect_every: 0
+      major_at: 2.2
+      minor_at: 0.8
+    tune_true_cost: 5346000.0
+    grid_size: 96
+  risk_greedy:
+    params:
+      min_benefit_per_dollar: 0.02
+    tune_true_cost: 6469000.0
+    grid_size: 8
+  entropy_triggered:
+    params:
+      entropy_at: 0.3
+      risk_at: 0.2
+      major_at: 0.2
+      minor_at: 0.2
+    tune_true_cost: 5429000.0
+    grid_size: 96
+  oracle_threshold:
+    params:
+      major_at: 3
+      minor_at: 1
+    tune_true_cost: 4743000.0
+    grid_size: 6
