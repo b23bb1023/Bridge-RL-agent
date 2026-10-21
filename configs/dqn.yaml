@@ -19,8 +19,8 @@ agent:
   eps_end: 0.05
   eps_fraction: 0.2
   explore_defer_prob: 0.5   # half of the exploratory actions defer, so exploration does not drain the account
-  demo_policy: best         # warm start from episodes of the best tuned rule
-  demo_episodes: 200
+  demo_policy: planner      # warm start from recorded episodes of the lookahead planner (scripts/make_demos.py)
+  demo_episodes: 100
   demo_pretrain_updates: 20000
   demo_ratio: 0.25          # share of each batch drawn from the demonstrations
   margin: 0.5               # large-margin term on demonstrated transitions only
@@ -35,6 +35,10 @@ variants:
   main: {}
   no_demos:          # same agent learned from scratch
     agent: {demo_policy: "", eps_start: 1.0, eps_fraction: 0.3}
+  pretrain_only:     # only the offline phase (TD + margin on the planner demonstrations), no online learning
+    agent: {total_steps: 8, eval_every: 8}
+  rule_demos:        # warm start from the best tuned rule instead of the planner
+    agent: {demo_policy: best, demo_episodes: 200}
   shared:            # shared-bridge dueling network without the per-bridge decomposition
     agent: {arch: shared}
   flat:              # plain MLP over the whole observation
@@ -42,8 +46,7 @@ variants:
   vanilla:           # textbook DQN: flat MLP, no masks, no dueling, no double estimator, no demonstrations
     agent: {arch: flat, dueling: false, double: false, masked: false, demo_policy: "", eps_start: 1.0,
             eps_fraction: 0.3, explore_defer_prob: 0.0, gamma: 0.99, tau: 1.0, target_update: 2000}
-  oracle:            # sees the true condition (demonstrations from the rule that also sees it)
-    agent: {demo_policy: oracle_threshold}
+  oracle:            # sees the true condition (demonstrations from a planner that also sees it)
     env: {agent_interface: {obs_mode: oracle}}
   last_obs:          # sees only the last inspection result instead of the Bayesian belief
     env: {agent_interface: {obs_mode: last_obs}}
