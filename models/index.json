@@ -1,0 +1,126 @@
+[
+  {
+    "model": "dqn_flat_seed0.pt",
+    "run": "flat/seed0"
+  },
+  {
+    "model": "dqn_flat_seed1.pt",
+    "run": "flat/seed1"
+  },
+  {
+    "model": "dqn_last_obs_seed0.pt",
+    "run": "last_obs/seed0"
+  },
+  {
+    "model": "dqn_last_obs_seed1.pt",
+    "run": "last_obs/seed1"
+  },
+  {
+    "model": "dqn_main_seed0.pt",
+    "run": "main/seed0"
+  },
+  {
+    "model": "dqn_main_seed1.pt",
+    "run": "main/seed1"
+  },
+  {
+    "model": "dqn_main_seed2.pt",
+    "run": "main/seed2"
+  },
+  {
+    "model": "dqn_main_seed3.pt",
+    "run": "main/seed3"
+  },
+  {
+    "model": "dqn_main_seed4.pt",
+    "run": "main/seed4"
+  },
+  {
+    "model": "dqn_no_demos_seed0.pt",
+    "run": "no_demos/seed0"
+  },
+  {
+    "model": "dqn_no_demos_seed1.pt",
+    "run": "no_demos/seed1"
+  },
+  {
+    "model": "dqn_no_inspection_seed0.pt",
+    "run": "no_inspection/seed0"
+  },
+  {
+    "model": "dqn_no_inspection_seed1.pt",
+    "run": "no_inspection/seed1"
+  },
+  {
+    "model": "dqn_oracle_seed0.pt",
+    "run": "oracle/seed0"
+  },
+  {
+    "model": "dqn_oracle_seed1.pt",
+    "run": "oracle/seed1"
+  },
+  {
+    "model": "ppo_seed0.zip",
+    "run": "ppo/seed0"
+  },
+  {
+    "model": "ppo_seed1.zip",
+    "run": "ppo/seed1"
+  },
+  {
+    "model": "ppo_seed2.zip",
+    "run": "ppo/seed2"
+  },
+  {
+    "model": "ppo_seed3.zip",
+    "run": "ppo/seed3"
+  },
+  {
+    "model": "ppo_seed4.zip",
+    "run": "ppo/seed4"
+  },
+  {
+    "model": "dqn_pretrain_only_seed0.pt",
+    "run": "pretrain_only/seed0"
+  },
+  {
+    "model": "dqn_pretrain_only_seed1.pt",
+    "run": "pretrain_only/seed1"
+  },
+  {
+    "model": "dqn_pretrain_only_seed2.pt",
+    "run": "pretrain_only/seed2"
+  },
+  {
+    "model": "dqn_pretrain_only_seed3.pt",
+    "run": "pretrain_only/seed3"
+  },
+  {
+    "model": "dqn_pretrain_only_seed4.pt",
+    "run": "pretrain_only/seed4"
+  },
+  {
+    "model": "dqn_rule_demos_seed0.pt",
+    "run": "rule_demos/seed0"
+  },
+  {
+    "model": "dqn_rule_demos_seed1.pt",
+    "run": "rule_demos/seed1"
+  },
+  {
+    "model": "dqn_shared_seed0.pt",
+    "run": "shared/seed0"
+  },
+  {
+    "model": "dqn_shared_seed1.pt",
+    "run": "shared/seed1"
+  },
+  {
+    "model": "dqn_vanilla_seed0.pt",
+    "run": "vanilla/seed0"
+  },
+  {
+    "model": "dqn_vanilla_seed1.pt",
+    "run": "vanilla/seed1"
+  }
+]

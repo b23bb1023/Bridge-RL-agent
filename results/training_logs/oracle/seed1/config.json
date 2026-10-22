@@ -1,0 +1,52 @@
+{
+  "variant": "oracle",
+  "seed": 1,
+  "agent": {
+    "arch": "decomposed",
+    "hidden": 256,
+    "dueling": true,
+    "double": true,
+    "masked": true,
+    "gamma": 0.99,
+    "n_step": 3,
+    "lr": 0.00025,
+    "lr_final": -1.0,
+    "batch_size": 128,
+    "buffer_size": 1000000,
+    "learning_starts": 10000,
+    "train_every": 4,
+    "n_envs": 8,
+    "target_update": 2000,
+    "tau": 0.005,
+    "eps_start": 0.3,
+    "eps_end": 0.05,
+    "eps_fraction": 0.2,
+    "explore_defer_prob": 0.5,
+    "cost_ratios": [
+      0.01,
+      0.1,
+      1.0
+    ],
+    "demo_policy": "planner",
+    "demo_episodes": 100,
+    "demo_pretrain_updates": 20000,
+    "demo_ratio": 0.25,
+    "margin": 0.5,
+    "margin_weight": 1.0,
+    "margin_decay_steps": 300000,
+    "margin_floor": 0.0,
+    "per": false,
+    "per_alpha": 0.6,
+    "per_beta_start": 0.4,
+    "max_grad_norm": 10.0,
+    "huber_delta": 1.0,
+    "total_steps": 300000,
+    "eval_every": 20000,
+    "extra": {}
+  },
+  "env_overrides": {
+    "agent_interface": {
+      "obs_mode": "oracle"
+    }
+  }
+}
