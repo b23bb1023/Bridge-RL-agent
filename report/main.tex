@@ -1,0 +1,148 @@
+\documentclass[conference,10pt]{IEEEtran}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\input{generated/numbers.tex}
+
+\newcommand{\repo}{\url{https://github.com/b23bb1023/Bridge-RL-agent}}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\dbltextfloatsep}{8pt plus 2pt minus 2pt}
+
+\begin{document}
+\title{BridgePulse-RL: Deep Q-Learning for Budget-Constrained Bridge Inspection and Repair}
+\author{\IEEEauthorblockN{K V Raghava}
+\IEEEauthorblockA{Code, data, trained agents and results: \repo}}
+\maketitle
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig2_information.pdf}
+\vspace{-4pt}
+\caption{(a) Test cost by what the agent observes (95\% CI). (b) Paired saving of our agent over the best tuned rule when the world differs from training (no retraining; 95\% CI).}
+\label{fig:info}
+\end{figure*}
+
+\section{Problem and environment}
+A road agency must keep ten aging bridges open for ten years ($T{=}120$ months) on half the money it
+needs, without seeing their true condition. Each month it issues one work order. The bridges are real
+Pennsylvania bridges from the National Bridge Inventory (NBI), with their deck areas, traffic (ADT),
+truck shares and detour lengths (3 arterial, 4 collector, 3 local). Funding of \$\Funding M/yr,
+half the level at which the best tuned rule gets within 10\% of its unlimited-money cost, accrues
+monthly into an account that carries savings forward.
+
+\textbf{Hidden dynamics, fitted to real data.} Bridge $i$ has condition $c_i\in\{0..4\}$ (Excellent to
+Critical, from its lowest NBI component rating). Without repair, it drops one state per month with
+probability $q_c\exp(\beta_a\frac{\text{age}_i-50}{50}+\beta_w(w_i-\frac12))$, where $w_i$ is log
+traffic. The hazards $q_c$, the effects $\beta_a{=}{\AgeCoef}$ and $\beta_w{=}{\AdtCoef}$, the routine rating
+noise ($\sigma{=}\RoutineSigma$) and the hidden-state mix are fitted jointly by maximum likelihood. We
+use an HMM likelihood over \NPairs{} pairs of 2022/2024 inspections, so that rating noise is not
+mistaken for decay. Inventory bridges get upkeep we do not model (\ObservedYears{} years per state),
+so the hazards are scaled by \UnmaintainedFactor{} (\ModelYears{} years). An open Critical bridge closes
+w.p.\ 0.25 per month until a major repair.
+
+\textbf{Observations and belief.} An inspection reports $o\sim O(o|c)\propto e^{-(o-c)^2/2\sigma^2}$.
+Routine inspections are free and happen every 24 months with the fitted $\sigma$. Paid in-depth
+inspections ($\sigma{=}0.25$) can be bought any month. The environment keeps the exact posterior
+$b_i\in\Delta^4$ of every bridge. It is updated by Bayes' rule for inspections, by the repair and decay
+kernels, and by closures: a closure reveals $c_i{=}4$, and staying open is weak evidence against it.
+Initial conditions are drawn from the same posterior, so the filter is exact; unit tests check it by
+brute-force enumeration.
+
+\textbf{State} $s_t\in[0,1]^{103}$: for each bridge, $b_i$, log closure and repair costs, age, months
+since inspection, and a closed flag; plus the account balance, month of year and $t/T$.
+\textbf{Actions} ($|\mathcal{A}|{=}31$): defer; inspect bridge $i$; minor repair of $i$ (Good/Fair
+improve one state w.p.\ 0.9); major repair of $i$ (to Excellent w.p.\ 0.95, else Good; reopens the
+bridge). A mask removes unaffordable work orders, and inspection or minor repair of a closed bridge.
+\textbf{Reward} (\$M):
+$r_t{=}-[C(a_t)+\sum_i D_iU_i+\sum_i(1{-}D_i)\rho(c_i)R_i+\mathbf{1}[t{=}T]\sum_i S_i(c_i)]$.
+$C$ is the agency cost (16/160/1{,}600\,\$/m$^2$ of deck for inspection, minor or major repair). $U_i$
+is the monthly road-user cost of a closure ($D_i{=}1$), ADT$\times$detour$\times$vehicle cost.
+$\rho{=}[0,.05,.2,.6,1]$ scales a structural-risk cost $R_i$. $S_i$ is the cost to restore the bridge
+at the end. The negative return is the true 10-year cost, which we report. In training, the risk and
+restore terms are replaced by their belief expectation, which leaves expected returns unchanged and
+lowers the variance.
+
+\section{Agent and baselines}
+\textbf{Decomposed masked DQN.} A shared encoder embeds each bridge's features with the global ones.
+Mean/max pooling gives a network context. From its embedding and the context, bridge $i$ outputs a
+baseline $B_i$, values $Q_i^k$ for each work order $k$ on itself, and a shadow price of money
+$\lambda_i{\ge}0$. Then $Q(s,a){=}\sum_iQ_i(s,a)$, where $Q_i$ is $B_i$ for defer, $Q_i^k$ for
+work on $i$, and $B_i-\lambda_i\,\mathrm{cost}_{kj}$ for work on another bridge $j$, which affects $i$
+only through the money it uses. Each $Q_i$ is trained on bridge $i$'s share of the reward, with
+targets at the joint greedy next action. The agent uses a masked $\arg\max$ when acting and in the
+double-DQN target, 3-step returns, $\gamma{=}0.99$, soft targets ($\tau{=}0.005$), 8 environments and
+$3{\times}10^5$ steps. The checkpoint with the best cost on 40 validation episodes is kept.
+
+\textbf{Learning from a planner.} A lookahead planner improves the best tuned rule by simulation. Each
+month it shortlists the rule's choice, defer, the four repairs saving the most risk per dollar, and the
+most informative inspection. It scores each candidate by 8 rollouts of that work order followed by the
+rule to the horizon. Rollouts start from conditions sampled from the belief (stratified per bridge) and
+share random numbers. The planner leaves the rule's choice only if the paired saving exceeds one
+standard error. We record \DemoEpisodes{} planner episodes and pre-train the DQN on them
+with TD plus a large-margin loss $\max_a[Q(s,a){+}0.5\,\mathbf{1}(a{\ne}a_E)]-Q(s,a_E)$. During
+Q-learning, a quarter of each batch comes from the demonstrations and the margin fades to zero.
+
+\textbf{Baselines and protocol.} \emph{Rules:} the four in Table~\ref{tab:main}, with thresholds
+grid-searched on separate tuning episodes. \emph{Maskable PPO} with $10^6$ steps. \emph{DQN ablations:} rule instead of planner
+demonstrations; none; an undecomposed shared network; a flat MLP; vanilla DQN (no masks, dueling,
+double estimator or demonstrations). \emph{Information variants:} the agent sees the truth, only the
+last inspection, or cannot buy inspections, each warm-started by a planner with the same information.
+The main agent and PPO use 5 seeds, the ablations 2. The test uses \Episodes{} held-out episodes on
+which every policy faces the same random draws, so differences are paired, with 95\% bootstrap CIs.
+
+\begin{table}[t]
+\centering
+\caption{Ten-year cost on \Episodes{} test episodes (\$M, 95\% CI). $\Delta$: paired extra cost over our agent. Closed: bridge-months. Insp.: paid inspections. $^\dagger$sees the true condition.}
+\label{tab:main}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\input{generated/table1.tex}
+\end{table}
+
+\section{Results}
+\textbf{Main result.} Over five seeds, the DQN's 10-year cost is \$\MainCost M \mbox{[\MainLo, \MainHi]}.
+That is \GainVsRule\% below the best tuned rule (\BestRule, \$\BestRuleCost M), a paired saving of
+\$\GainVsRuleAbs M \mbox{[\GainVsRuleLo, \GainVsRuleHi]} (Table~\ref{tab:main}). Averaging the five networks'
+Q-values gives \$\EnsembleCost M, \$\EnsembleGap M \mbox{[\EnsembleGapLo, \EnsembleGapHi]} better again. It
+matches its teacher: it is \$\GainVsPlanner M \mbox{[\GainVsPlannerLo, \GainVsPlannerHi]} cheaper than
+the planner. It needs \DQNms\,ms per decision instead of \Plannerms\,ms. With about as many
+repairs as the rule, it spends \$\MainAgency M instead of \$\RuleAgency M. It cuts structural risk from
+\$\RuleRisk M to \$\MainRisk M and the final restore cost from \$\RuleSalvage M to \$\MainSalvage M, at
+slightly more closure (\MainClosed{} vs \RuleClosed{} bridge-months).
+
+\textbf{What the gain comes from.} The gain is learned offline. Q-learning with the margin on the
+planner's episodes alone gives \$\PretrainCost M, within noise of the full agent. Online Q-learning holds that level while the margin lasts, and every seed
+degrades once it reaches zero (Fig.~\ref{fig:learning}); the best validation checkpoint is kept.
+The teacher matters: with rule demonstrations the agent only matches the rule (\$\RuleDemoCost M),
+and from scratch it costs \$\NoDemoCost M. The decomposition matters too: the undecomposed shared
+network costs \$\SharedCost M (+\SharedDiff\ \mbox{[\SharedLo, \SharedHi]}) and the flat MLP \$\FlatCost M.
+Maskable PPO (\$\PPOCost M) and vanilla DQN (\$\VanillaCost M) do not reach the rules.
+
+\textbf{Value of information} (Fig.~\ref{fig:info}a). Seeing the true condition is worth \$\OracleGap M
+\mbox{[\OracleGapLo, \OracleGapHi]}. Neither the belief nor paid inspections recover much of it: agents that
+see only the last inspection (\$\LastObsCost M) or cannot buy inspections (\$\NoInspCost M) are
+within noise of ours. Routine ratings are accurate here
+($\sigma{=}\RoutineSigma$), so the last rating and its age carry most of what the posterior knows.
+
+\textbf{Robustness} (Fig.~\ref{fig:info}b). Without retraining, the agent stays cheaper than the best
+rule under slower decay (+\SlowSaving) and faster decay (+\FastSaving), and by far under a 25\% funding
+cut (\$\CutOurs M vs \$\CutRule M). It is no better when decay is faster than its model expects
+(\UnmodSaving\ \mbox{[\UnmodLo, \UnmodHi]}). It is worse with noisier routine ratings (\$\NoisyOurs M vs
+\$\NoisyRule M) and on twenty unseen networks of real bridges (\$\UnseenOurs M vs \$\UnseenRule M). A
+policy trained on one network does not transfer, while the rules do by construction.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig1_learning.pdf}
+\vspace{-14pt}
+\caption{Validation cost during training (mean, 95\% CI over seeds). Step 0 is after offline pre-training on the demonstrations; the jump at the end is where the margin reaches zero.}
+\label{fig:learning}
+\end{figure}
+
+\textbf{Limitations.} The agent is trained for one network (training across sampled networks is the
+next step); unit costs, the risk rate and the unmaintained factor are assumptions.
+
+\end{document}
