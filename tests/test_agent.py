@@ -71,6 +71,19 @@ def test_reward_vector_adds_up_to_reward(env_factory):
         assert float(info["reward_vector"].sum()) == pytest.approx(r, rel=1e-5, abs=1e-6)
 
 
+def test_reward_vector_adds_up_with_shaping_and_invalid_actions(env_factory):
+    env = env_factory(shaping={"enabled": True, "eta": 1.0, "gamma": 0.99})
+    env.reset(seed=9)
+    rng = np.random.default_rng(3)
+    invalid = 0
+    for _ in range(env.T):
+        a = int(rng.integers(env.num_actions))   # often infeasible: penalised and replaced by defer
+        invalid += not env.action_masks()[a]
+        _, r, done, _, info = env.step(a)
+        assert float(info["reward_vector"].sum()) == pytest.approx(r, rel=1e-5, abs=1e-6)
+    assert invalid > 0
+
+
 def test_checkpoint_round_trip(tmp_path):
     agent = DQNAgent(OBS, ACTIONS, N, DQNConfig(arch="flat"), seed=1)
     path = tmp_path / "agent.pt"

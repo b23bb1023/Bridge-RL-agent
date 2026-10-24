@@ -132,6 +132,24 @@ def test_expected_reward_matches_true_cost_on_average(env_factory):
     assert abs(diff.mean()) < 3 * diff.std(ddof=1) / np.sqrt(diff.size) + 1e-6 * realised.mean()
 
 
+@pytest.mark.parametrize("mode", ["oracle", "last_obs"])
+def test_agents_without_the_belief_are_charged_realised_costs(env_factory, mode):
+    """The belief expectation is only an unbiased reward for policies that act on the belief; a policy that
+    reads the true state (here: repair whatever is truly Poor or worse) must be charged what really happens."""
+    env = env_factory(training_reward={"risk_and_salvage": "expected"}, agent_interface={"obs_mode": mode})
+    assert not env.expected_reward
+    for ep in range(5):
+        env.reset(seed=6000 + ep)
+        total, done = 0.0, False
+        while not done:
+            mask = env.action_masks()
+            bad = [i for i in np.flatnonzero(env.state >= 3) if mask[A.encode(A.MAJOR, int(i), env.n)]]
+            a = A.encode(A.MAJOR, int(bad[0]), env.n) if bad else 0
+            _, r, done, _, info = env.step(a)
+            total += r
+        assert -total * env.reward_scale == pytest.approx(info["episode"]["true_cost"], rel=1e-9)
+
+
 def test_belief_is_calibrated_against_true_states(env_factory):
     """With an exact filter, the average belief in each state equals how often that state occurs."""
     env = env_factory()

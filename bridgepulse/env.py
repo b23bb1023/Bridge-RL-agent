@@ -87,7 +87,11 @@ class BridgeNetworkEnv(gym.Env):
         self.domain_masks = bool(ai["domain_masks"])
         self.invalid_penalty = float(ai["invalid_action_penalty"])
 
-        self.expected_reward = cfg.get("training_reward", {}).get("risk_and_salvage", "realized") == "expected"
+        # Replacing risk and salvage by their expectation under the belief keeps every policy's expected
+        # return unchanged only when the belief is the decision maker's posterior. That holds in belief
+        # mode; an agent that sees the true state (or plans from its last result) gets realised costs.
+        self.expected_reward = (cfg.get("training_reward", {}).get("risk_and_salvage", "realized") == "expected"
+                                and self.obs_mode == "belief")
         sh = cfg["shaping"]
         self.shaping = bool(sh["enabled"])
         self.shaping_eta = float(sh.get("eta", 1.0))
@@ -196,8 +200,9 @@ class BridgeNetworkEnv(gym.Env):
         glob = np.array([np.clip(balance, 0.0, 1.0), (self.t % 12) / 12.0, self.t / self.T], dtype=np.float32)
         return np.concatenate([per.ravel(), glob])
 
-    def _potential(self) -> float:
-        return -float(self.costs.expected_risk(self.belief, self.closed).sum()) / self.reward_scale
+    def _potential(self) -> np.ndarray:
+        """Per-bridge shaping potential: minus each bridge's expected monthly risk."""
+        return -self.costs.expected_risk(self.belief, self.closed) / self.reward_scale
 
     # ------------------------------------------------------------------ transition
     def step(self, action: int):
@@ -210,7 +215,7 @@ class BridgeNetworkEnv(gym.Env):
             self.stats["invalid"] += 1
             a = 0
         kind, i = A.decode(a, n)
-        phi_before = self._potential() if self.shaping else 0.0
+        phi_before = self._potential() if self.shaping else np.zeros(n)
 
         agency = float(self.costs.action_costs[a])
         self.budget -= agency
@@ -289,20 +294,24 @@ class BridgeNetworkEnv(gym.Env):
         for key, val in (("agency", agency), ("closure", closure), ("risk", risk), ("salvage", salvage), ("penalty", penalty)):
             self.stats[key] += val
         reward = -(agency + closure + risk_for_reward + salvage_for_reward + penalty) / self.reward_scale
+        shaping_vec = np.zeros(n)
         if self.shaping:
-            phi_after = 0.0 if terminated else self._potential()
-            reward += self.shaping_eta * (self.shaping_gamma * phi_after - phi_before)
+            phi_after = np.zeros(n) if terminated else self._potential()
+            shaping_vec = self.shaping_eta * (self.shaping_gamma * phi_after - phi_before)
+            reward += float(shaping_vec.sum())
 
-        # The same reward split by bridge (the cost of a work order is charged to its bridge).
-        per_bridge = closure_vec + (expected_risk_vec if self.expected_reward else risk_vec)
+        # The same reward split by bridge, summing to the scalar reward: the cost of a work order is charged
+        # to its bridge, an invalid-action penalty is shared equally, and shaping is per-bridge already.
+        per_bridge = closure_vec + (expected_risk_vec if self.expected_reward else risk_vec) + penalty / n
         if i >= 0:
             per_bridge[i] += agency
         if terminated:
             per_bridge += (self.belief * self.costs.salvage_table).sum(axis=1) if self.expected_reward else self.costs.salvage(self.state)
+        reward_vector = -per_bridge / self.reward_scale + shaping_vec
 
         self._mask = self._compute_mask()
         info: dict[str, Any] = {"t": self.t, "cost": total, "action_kind": kind, "bridge": i,
-                                "reward_vector": (-per_bridge / self.reward_scale).astype(np.float32)}
+                                "reward_vector": reward_vector.astype(np.float32)}
         if terminated:
             info["episode"] = self.episode_summary()
         return self._obs(), float(reward), terminated, False, info
