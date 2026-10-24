@@ -43,8 +43,8 @@ variants:
     agent: {arch: shared}
   flat:              # plain MLP over the whole observation
     agent: {arch: flat}
-  vanilla:           # textbook DQN: flat MLP, no masks, no dueling, no double estimator, no demonstrations
-    agent: {arch: flat, dueling: false, double: false, masked: false, demo_policy: "", eps_start: 1.0,
+  vanilla:           # textbook DQN: flat MLP, 1-step targets, no masks, dueling, double estimator or demonstrations
+    agent: {arch: flat, dueling: false, double: false, masked: false, demo_policy: "", n_step: 1, eps_start: 1.0,
             eps_fraction: 0.3, explore_defer_prob: 0.0, gamma: 0.99, tau: 1.0, target_update: 2000}
   oracle:            # sees the true condition (demonstrations from a planner that also sees it)
     env: {agent_interface: {obs_mode: oracle}}

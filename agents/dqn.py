@@ -195,7 +195,7 @@ class DQNAgent:
 
     @classmethod
     def load(cls, path: str | Path) -> "DQNAgent":
-        ckpt = torch.load(Path(path), map_location="cpu", weights_only=False)
+        ckpt = torch.load(Path(path), map_location="cpu", weights_only=True)   # tensors and plain values only
         agent = cls(ckpt["obs_dim"], ckpt["n_actions"], ckpt["n_bridges"], DQNConfig(**ckpt["config"]))
         agent.online.load_state_dict(ckpt["state_dict"])
         agent.target.load_state_dict(ckpt["state_dict"])

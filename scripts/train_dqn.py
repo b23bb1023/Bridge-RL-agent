@@ -32,7 +32,6 @@ from baselines.heuristics import build as build_heuristic  # noqa: E402
 from bridgepulse.config import deep_update, load_env_config, load_yaml  # noqa: E402
 from bridgepulse.env import BridgeNetworkEnv  # noqa: E402
 from bridgepulse.evaluation import VALIDATION_SEEDS, evaluate  # noqa: E402
-from scripts.make_demos import DEMO_DIR, demo_name  # noqa: E402
 
 
 def training_seed(run_seed: int, episode: int) -> int:
@@ -63,6 +62,7 @@ def validate(agent: DQNAgent, env: BridgeNetworkEnv) -> dict:
 
 def load_planner_demonstrations(cfg: DQNConfig, env: BridgeNetworkEnv, budget_scale: float, reward_dim: int, seed: int) -> ReplayBuffer:
     """Recorded episodes of the lookahead planner (scripts/make_demos.py), stored with n-step returns and masks."""
+    from scripts.make_demos import DEMO_DIR, demo_name
     name = demo_name(budget_scale, env.obs_mode, env.allow_inspection)
     path = DEMO_DIR / f"{name}.npz"
     if not path.exists():
