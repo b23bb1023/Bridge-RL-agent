@@ -48,6 +48,38 @@ def paired_difference(a: pd.DataFrame, b: pd.DataFrame, metric: str = "true_cost
     return bootstrap_ci(m[f"{metric}_a"] - m[f"{metric}_b"])
 
 
+def bootstrap_ci_clustered(x, clusters, n_boot: int = 4000, alpha: float = 0.05, seed: int = 0) -> tuple[float, float, float]:
+    """Mean with a CI that resamples whole clusters (e.g. all episodes played on one bridge network)."""
+    x, clusters = np.asarray(x, dtype=np.float64), np.asarray(clusters)
+    keys = np.unique(clusters)
+    sums = np.array([x[clusters == k].sum() for k in keys])
+    counts = np.array([(clusters == k).sum() for k in keys])
+    idx = np.random.default_rng(seed).integers(0, keys.size, size=(n_boot, keys.size))
+    means = sums[idx].sum(axis=1) / counts[idx].sum(axis=1)
+    return float(x.mean()), float(np.quantile(means, alpha / 2)), float(np.quantile(means, 1 - alpha / 2))
+
+
+def paired_difference_clustered(a: pd.DataFrame, b: pd.DataFrame, cluster: str, metric: str = "true_cost") -> tuple[float, float, float]:
+    """Like paired_difference, but resampling whole clusters of episodes instead of single episodes."""
+    m = a[["seed", cluster, metric]].merge(b[["seed", metric]], on="seed", suffixes=("_a", "_b"))
+    return bootstrap_ci_clustered(m[f"{metric}_a"] - m[f"{metric}_b"], m[cluster])
+
+
+def paired_difference_over_seeds(members: pd.DataFrame, reference: pd.DataFrame, metric: str = "true_cost",
+                                 n_boot: int = 4000, alpha: float = 0.05, seed: int = 0) -> tuple[float, float, float]:
+    """Mean difference of a multi-seed policy against a reference, with a CI that resamples both the trained
+    models (members) and the test episodes. It covers the uncertainty of training another set of seeds, which an
+    episode-only bootstrap of the seed-averaged policy does not."""
+    table = members.pivot_table(index="member", columns="seed", values=metric)
+    ref = reference.set_index("seed")[metric].reindex(table.columns).to_numpy()
+    diff = table.to_numpy() - ref[None, :]
+    rng = np.random.default_rng(seed)
+    n_members, n_episodes = diff.shape
+    means = np.array([diff[np.ix_(rng.integers(0, n_members, n_members), rng.integers(0, n_episodes, n_episodes))].mean()
+                      for _ in range(n_boot)])
+    return float(diff.mean()), float(np.quantile(means, alpha / 2)), float(np.quantile(means, 1 - alpha / 2))
+
+
 def summarise(results: dict[str, pd.DataFrame], metrics=("true_cost", "agency", "closure", "risk", "salvage",
                                                         "closure_months", "inspections", "minor", "major")) -> pd.DataFrame:
     rows = []

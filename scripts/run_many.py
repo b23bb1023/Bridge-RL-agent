@@ -2,6 +2,7 @@
 
   python scripts/run_many.py --jobs 4 --dqn shared flat --ppo --seeds 0 1 2 3 4
   python scripts/run_many.py --jobs 4 --dqn shared --budget-scales 0.5 0.75 1.5 2 --seeds 0 1 2
+  python scripts/run_many.py --jobs 8 --dqn main:0-4 no_demos:0-1     # per-variant seeds
 """
 
 from __future__ import annotations
@@ -41,12 +42,23 @@ def main() -> None:
     dqn_steps = args.steps or dqn_spec["agent"]["total_steps"]
     ppo_steps = args.steps or yaml.safe_load((ROOT / "configs" / "ppo.yaml").read_text())["ppo"]["total_steps"]
 
+    def seeds_of(item: str) -> tuple[str, list[int]]:
+        """'main' uses --seeds; 'main:0-4' or 'main:0,2' gives that variant its own seeds."""
+        if ":" not in item:
+            return item, args.seeds
+        name, spec = item.split(":", 1)
+        if "-" in spec:
+            lo, hi = spec.split("-")
+            return name, list(range(int(lo), int(hi) + 1))
+        return name, [int(x) for x in spec.split(",")]
+
     commands: list[tuple[str, list[str], Path, int]] = []
-    for variant in args.dqn:
+    for item in args.dqn:
+        variant, variant_seeds = seeds_of(item)
         for scale in args.budget_scales or [None]:
             tag = [] if scale is None else ["--budget-scale", f"{scale:g}", "--tag", f"budget{scale:g}"]
             name = variant if scale is None else f"{variant}-budget{scale:g}"
-            for seed in args.seeds:
+            for seed in variant_seeds:
                 cmd = [sys.executable, "scripts/train_dqn.py", "--variant", variant, "--seed", str(seed), "--quiet",
                        "--runs-dir", args.runs_dir, *tag]
                 if args.steps:

@@ -33,11 +33,13 @@ from baselines.heuristics import build  # noqa: E402
 from bridgepulse import belief as B  # noqa: E402
 from bridgepulse.config import deep_update, load_env_config  # noqa: E402
 from bridgepulse.env import BridgeNetworkEnv  # noqa: E402
-from bridgepulse.evaluation import TEST_SEEDS, bootstrap_ci, evaluate, paired_difference, summarise  # noqa: E402
+from bridgepulse.evaluation import (TEST_SEEDS, bootstrap_ci, bootstrap_ci_clustered, evaluate,  # noqa: E402
+                                   paired_difference, paired_difference_clustered, paired_difference_over_seeds, summarise)
 from bridgepulse.network import network_from_frame  # noqa: E402
 
 RESULTS = ROOT / "results"
 RUNS = ROOT / "runs"
+MODELS = ROOT / "models"
 MAIN = "DQN (ours)"
 ENSEMBLE = "DQN (ours, 5-seed ensemble)"
 PLANNER = "Lookahead planner (teacher)"
@@ -112,13 +114,27 @@ def make_policy(spec: dict):
     raise ValueError(kind)
 
 
+def code_and_data_fingerprint() -> str:
+    """Hash of everything besides the job itself that determines an episode: the environment and policy code,
+    the configuration files, the bridge network and the fitted deterioration model."""
+    import hashlib
+    files = sorted([*(ROOT / "bridgepulse").glob("*.py"), *(ROOT / "baselines").glob("*.py"), *(ROOT / "configs").glob("*.yaml"),
+                    ROOT / "data" / "processed" / "network_10.csv", ROOT / "data" / "processed" / "transition_fit.json"])
+    h = hashlib.sha1()
+    for f in files:
+        h.update(f.relative_to(ROOT).as_posix().encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()
+
+
 def _cache_path(job: dict) -> Path | None:
     """Slow planner episodes are cached on disk, keyed by everything that determines them."""
     if job["policy"]["kind"] != "planner" or job.get("network"):
         return None
     import hashlib
-    key = json.dumps([job["policy"], job["env_overrides"], job["scenario_overrides"], job["seeds"]], sort_keys=True)
-    return RESULTS / "episodes" / "planner_cache" / f"{hashlib.sha1(key.encode()).hexdigest()[:16]}.csv"
+    resolved = deep_update(load_env_config(), deep_update(job["env_overrides"], job["scenario_overrides"]))
+    key = json.dumps([job["policy"], resolved, job["seeds"], job["fingerprint"]], sort_keys=True, default=str)
+    return Path(job["results_dir"]) / "episodes" / "planner_cache" / f"{hashlib.sha1(key.encode()).hexdigest()[:16]}.csv"
 
 
 def _job(job: dict) -> pd.DataFrame:
@@ -127,6 +143,7 @@ def _job(job: dict) -> pd.DataFrame:
     if cache is not None and cache.exists():
         df = pd.read_csv(cache)
         df["policy"], df["scenario"], df["member"] = job["label"], job["scenario"], job.get("member", 0)
+        df["network_id"] = job.get("network_id", -1)
         return df
     cfg = load_env_config()
     network = network_from_frame(pd.DataFrame(job["network"])) if job.get("network") else None
@@ -136,6 +153,7 @@ def _job(job: dict) -> pd.DataFrame:
         cache.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(cache, index=False)
     df["policy"], df["scenario"], df["member"] = job["label"], job["scenario"], job.get("member", 0)
+    df["network_id"] = job.get("network_id", -1)
     return df
 
 
@@ -157,38 +175,62 @@ def planner_spec(budget_scale: float = 1.0, rollouts: int = 8) -> tuple[str, lis
     return PLANNER, [spec], {}
 
 
-def rl_specs(run_names: list[str]) -> list[tuple[str, list[dict], dict]]:
-    out = []
+def _env_overrides_for(run: str) -> dict:
+    """The environment settings a DQN variant was trained with: from its run folder, its archived log, or the config."""
+    for folder in (RUNS / run, ROOT / "results" / "training_logs" / run):
+        configs = sorted(folder.glob("seed*/config.json"))
+        if configs:
+            return json.loads(configs[0].read_text()).get("env_overrides", {})
+    from scripts.train_dqn import build
+    return build(run.split("-")[0], None)[1]
+
+
+def rl_specs(run_names: list[str], allow_missing: bool = False) -> list[tuple[str, list[dict], dict]]:
+    """Trained agents to evaluate. Each run is looked up in runs/<run>/seed*/ (fresh training) and, failing that,
+    in the shipped models/ folder. A requested run with no models stops the evaluation unless allow_missing."""
+    out, missing = [], []
     for run in run_names:
         variant = run.split("-")[0]
-        seeds = sorted((RUNS / run).glob("seed*"))
-        if not seeds:
-            continue
         if variant == "ppo":
-            members = [{"kind": "ppo", "path": str(s / "best.zip")} for s in seeds if (s / "best.zip").exists()]
-            env = {}
-            label = "Maskable PPO"
+            paths = [s / "best.zip" for s in sorted((RUNS / run).glob("seed*")) if (s / "best.zip").exists()]
+            paths = paths or sorted(MODELS.glob("ppo_seed*.zip"))
+            members = [{"kind": "ppo", "path": str(p)} for p in paths]
+            env, label = {}, "Maskable PPO"
         else:
-            members = [{"kind": "dqn", "path": str(s / "best.pt")} for s in seeds if (s / "best.pt").exists()]
-            env = json.loads((seeds[0] / "config.json").read_text())["env_overrides"]
-            label = DQN_LABELS.get(variant, variant)
+            paths = [s / "best.pt" for s in sorted((RUNS / run).glob("seed*")) if (s / "best.pt").exists()]
+            paths = paths or sorted(MODELS.glob(f"dqn_{run}_seed*.pt"))
+            members = [{"kind": "dqn", "path": str(p)} for p in paths]
+            env, label = (_env_overrides_for(run) if members else {}), DQN_LABELS.get(variant, variant)
             if variant == "main" and len(members) > 1:
                 out.append((ENSEMBLE, [{"kind": "dqn_ensemble", "paths": [m["path"] for m in members]}], env))
-        if members:
-            out.append((label, members, env))
+        if not members:
+            missing.append(run)
+            continue
+        print(f"  {label}: {len(members)} trained model(s) from {Path(members[0]['path']).parent.relative_to(ROOT)}", flush=True)
+        out.append((label, members, env))
+    if missing and not allow_missing:
+        raise SystemExit(f"no trained models found for {missing} (looked in {RUNS.relative_to(ROOT)}/ and models/). "
+                         "Train them first, or leave them out with --runs.")
     return out
 
 
+MEMBER_ROWS: list[pd.DataFrame] = []   # every evaluated episode of every trained model, before averaging seeds
+
+
 def run_jobs(jobs: list[dict], workers: int) -> pd.DataFrame:
+    fingerprint = code_and_data_fingerprint()
+    for job in jobs:
+        job["fingerprint"], job["results_dir"] = fingerprint, str(RESULTS)
     with ProcessPoolExecutor(max_workers=workers) as pool:
         frames = list(pool.map(_job, jobs))
     df = pd.concat(frames, ignore_index=True)
-    # Average RL training seeds per test episode so every policy has one row per seed/episode.
-    num = df.select_dtypes("number").columns.drop(["seed", "member"], errors="ignore")
-    return df.groupby(["scenario", "policy", "seed"], as_index=False)[list(num)].mean()
+    MEMBER_ROWS.append(df)
+    # Average RL training seeds per test episode so every policy has one row per episode.
+    num = df.select_dtypes("number").columns.drop(["seed", "member", "network_id"], errors="ignore")
+    return df.groupby(["scenario", "policy", "seed", "network_id"], as_index=False)[list(num)].mean()
 
 
-def jobs_for(policies, scenario: str, overrides: dict, seeds, network=None) -> list[dict]:
+def jobs_for(policies, scenario: str, overrides: dict, seeds, network=None, network_id: int = -1) -> list[dict]:
     jobs = []
     for label, members, env in policies:
         members = members if isinstance(members, list) else [members]
@@ -197,12 +239,14 @@ def jobs_for(policies, scenario: str, overrides: dict, seeds, network=None) -> l
             for c, part in enumerate(parts):   # slow policies are spread over several workers
                 job_spec = {**spec, "seed": spec.get("seed", 0) + c} if spec["kind"] == "planner" else spec
                 jobs.append({"label": label, "policy": job_spec, "env_overrides": env, "scenario": scenario,
-                             "scenario_overrides": overrides, "seeds": [int(x) for x in part], "member": k, "network": network})
+                             "scenario_overrides": overrides, "seeds": [int(x) for x in part], "member": k, "network": network,
+                             "network_id": network_id})
     return jobs
 
 
 def unseen_network_jobs(policies, seeds, n_networks: int = 20) -> list[dict]:
     """Networks drawn from the held-out pool (3 arterial, 4 collector, 3 local), funding scaled to their repair costs."""
+    n_networks = min(n_networks, len(seeds))   # every network needs at least one episode
     pool = pd.read_csv(ROOT / "data" / "processed" / "pool.csv")
     base_cfg = load_env_config()
     base_env = BridgeNetworkEnv(base_cfg)
@@ -216,7 +260,8 @@ def unseen_network_jobs(policies, seeds, n_networks: int = 20) -> list[dict]:
         net_env = BridgeNetworkEnv(base_cfg, network=network_from_frame(frame))
         ratio = net_env.costs.major.sum() / base_env.costs.major.sum()
         overrides = {"budget": {"annual": base_cfg["budget"]["annual"] * ratio}}
-        jobs += jobs_for(policies, "unseen_networks", overrides, seeds[j * per:(j + 1) * per], network=frame.to_dict("list"))
+        jobs += jobs_for(policies, "unseen_networks", overrides, seeds[j * per:(j + 1) * per], network=frame.to_dict("list"),
+                         network_id=j)
     return jobs
 
 
@@ -227,14 +272,41 @@ def write_summary(df: pd.DataFrame, name: str, reference: str = MAIN) -> pd.Data
         res = {p: g.reset_index(drop=True) for p, g in part.groupby("policy")}
         summary = summarise(res)
         summary.insert(0, "scenario", scenario)
+        # Episodes played on the same sampled network are not independent: resample whole networks there.
+        clustered = (part["network_id"] >= 0).any()
+        if clustered:
+            for p, g in res.items():
+                _, lo, hi = bootstrap_ci_clustered(g["true_cost"], g["network_id"])
+                summary.loc[summary["policy"] == p, ["true_cost_lo", "true_cost_hi"]] = [lo, hi]
+        summary["ci_resamples"] = "networks" if clustered else "episodes"
         if reference in res:
             for p in res:
-                d, lo, hi = paired_difference(res[p], res[reference])
+                if clustered:
+                    d, lo, hi = paired_difference_clustered(res[p], res[reference], "network_id")
+                else:
+                    d, lo, hi = paired_difference(res[p], res[reference])
                 summary.loc[summary["policy"] == p, ["diff_vs_main", "diff_lo", "diff_hi"]] = [d, lo, hi]
         rows.append(summary)
     out = pd.concat(rows, ignore_index=True).sort_values(["scenario", "true_cost"])
     out.to_csv(RESULTS / f"summary_{name}.csv", index=False)
     return out
+
+
+def write_seed_uncertainty(nominal: pd.DataFrame, members: pd.DataFrame, rl) -> None:
+    """Each multi-seed agent against the best tuned rule and the planner, with CIs over training seeds and episodes."""
+    means = nominal.groupby("policy")["true_cost"].mean()
+    rules = [p for p in means.index if p.startswith("Rule:") and "oracle" not in p]
+    references = [min(rules, key=means.get)] + ([PLANNER] if PLANNER in means.index else [])
+    rows = []
+    for label, specs, _ in rl:
+        if len(specs) < 2:
+            continue
+        own = members[members["policy"] == label]
+        for ref in references:
+            d, lo, hi = paired_difference_over_seeds(own, nominal[nominal["policy"] == ref])
+            rows.append({"policy": label, "reference": ref, "seeds": len(specs), "episodes": own["seed"].nunique(),
+                         "diff": d, "diff_lo": lo, "diff_hi": hi})
+    pd.DataFrame(rows).to_csv(RESULTS / "summary_seed_uncertainty.csv", index=False)
 
 
 def record_timeline(spec: dict, env_overrides: dict, seed: int) -> dict:
@@ -298,8 +370,11 @@ def main() -> None:
 
     teacher = [] if args.no_planner else [planner_spec()]
     nominal = run_jobs(jobs_for(teacher + heur + rl + random_init, "nominal", {}, seeds), args.workers)
+    nominal_members = MEMBER_ROWS[-1]
     nominal.to_csv(RESULTS / "episodes" / "nominal.csv", index=False)
+    nominal_members.to_csv(RESULTS / "episodes" / "nominal_members.csv", index=False)
     summary = write_summary(nominal, "nominal")
+    write_seed_uncertainty(nominal, nominal_members, rl)
     cols = ["policy", "true_cost", "true_cost_lo", "true_cost_hi", "closure_months", "inspections", "diff_vs_main", "diff_lo", "diff_hi"]
     print(summary[[c for c in cols if c in summary]].to_string(index=False, float_format=lambda v: f"{v:,.0f}"))
 
@@ -317,6 +392,7 @@ def main() -> None:
         frames.append(run_jobs(unseen_network_jobs(pols, seeds), args.workers))
         ood = pd.concat(frames + [nominal[nominal["policy"].isin([p[0] for p in pols])]], ignore_index=True)
         ood.to_csv(RESULTS / "episodes" / "ood.csv", index=False)
+        pd.concat(MEMBER_ROWS[-len(frames):], ignore_index=True).to_csv(RESULTS / "episodes" / "ood_members.csv", index=False)
         write_summary(ood, "ood")
 
     if args.budget_sweep:
@@ -325,7 +401,7 @@ def main() -> None:
             ov = {"stress": {"budget_scale": scale}}
             # Rules are re-tuned and the agent retrained for each funding level.
             pols = [p for p in heuristic_specs(scale) if p[0] != HEURISTIC_LABELS["do_nothing"]]
-            pols += [p for p in rl_specs(["main" if scale == 1.0 else f"main-budget{scale:g}"]) if p[0] == MAIN]
+            pols += [p for p in rl_specs(["main" if scale == 1.0 else f"main-budget{scale:g}"], allow_missing=True) if p[0] == MAIN]
             part = run_jobs(jobs_for(pols, f"budget_{scale:g}", ov, seeds), args.workers)
             part["budget_scale"] = scale
             frames.append(part)
