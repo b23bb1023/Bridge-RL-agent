@@ -105,6 +105,26 @@ def test_n_step_returns():
     np.testing.assert_allclose(buf.discount[1:4], 0.0)
 
 
+def test_n_step_collector_keeps_each_observation_when_the_caller_reuses_its_array():
+    # The training loop writes every new observation into the same array; queued transitions must not change.
+    buf = ReplayBuffer(16, 2, 3, reward_dim=2)
+    col = NStepCollector(3, 0.9, buf)
+    obs = np.zeros((1, 2), np.float32)
+    mask = np.ones(3, bool)
+    for t in range(6):
+        obs[0] = [t, 10 * t]
+        reward = np.array([t, -t], np.float32)
+        col.push(obs[0], t % 3, reward, np.array([t + 1, 10 * (t + 1)], np.float32), mask, terminal=(t == 5), mask=mask)
+        reward[:] = 99.0   # the caller may also reuse its reward array
+    for t in range(6):
+        np.testing.assert_allclose(buf.obs[t], [t, 10 * t])
+        assert buf.action[t] == t % 3
+        steps = range(t, min(t + 3, 6))
+        np.testing.assert_allclose(buf.reward[t], [sum(0.9 ** (k - t) * k for k in steps), -sum(0.9 ** (k - t) * k for k in steps)], rtol=1e-5)
+        last = min(t + 3, 6)
+        np.testing.assert_allclose(buf.next_obs[t], [last, 10 * last])
+
+
 def test_dqn_learns_a_contextual_bandit():
     """Reward equals one observation feature per action; greedy actions should pick the largest."""
     torch.set_num_threads(1)

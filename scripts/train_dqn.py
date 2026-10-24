@@ -174,7 +174,7 @@ def train(variant: str, seed: int, steps: int | None, out_dir: Path, env_extra: 
         for k, e in enumerate(envs):
             nxt, r, terminated, truncated, info = e.step(int(actions[k]))
             done = terminated or truncated
-            collectors[k].push(obs[k], int(actions[k]), info["reward_vector"] if decomposed else r, nxt, e.action_masks(), done)
+            collectors[k].push(obs[k].copy(), int(actions[k]), info["reward_vector"] if decomposed else r, nxt, e.action_masks(), done)
             if done:
                 recent_cost.append(info["episode"]["true_cost"])
                 finished += 1

@@ -122,7 +122,10 @@ class NStepCollector:
         self.queue.popleft()
 
     def push(self, obs, action, reward, next_obs, next_mask, terminal: bool, mask=None) -> None:
-        self.queue.append((obs, action, reward, mask))
+        # The queue holds a transition for up to n steps, so it keeps its own copies: callers often
+        # reuse one array for every step.
+        self.queue.append((np.array(obs, dtype=np.float32, copy=True), action, np.array(reward, dtype=np.float32, copy=True),
+                           None if mask is None else np.array(mask, dtype=bool, copy=True)))
         if terminal:
             while self.queue:
                 self._emit(next_obs, next_mask, terminal=True)
