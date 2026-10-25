@@ -7,7 +7,9 @@ noisy inspections, and through the closure of a bridge that has become critical.
 a maintenance account that is topped up every month and carries unspent funds forward.
 
 This is a partially observable Markov decision process (POMDP). The agent acts on the exact Bayesian
-belief over each bridge's condition, which turns the POMDP into a fully observed belief MDP.
+belief over each bridge's condition. Together with the other features this is close to a fully
+observed belief MDP; the one exception is that the account balance is capped in the observation (see
+below).
 
 ## Hidden state
 
@@ -110,7 +112,7 @@ Per bridge (10 × 10):
 
 Global (3):
 
-- account balance relative to the largest single repair;
+- account balance relative to the largest single repair, capped at 1 (balances above 1.05 times the largest major repair, about $1.6M, all look the same);
 - month of year;
 - `t / T`.
 
@@ -119,6 +121,10 @@ Variants used in the ablations keep the same size:
 - **oracle:** the true state one-hot replaces the belief;
 - **last inspection:** the one-hot of the last observed state replaces the belief. A closed bridge
   shows as Critical, and a repair moves the recorded state the way the repair would.
+
+Because the balance is capped, two states that differ only in a balance above that level look
+identical to the agent. The condition beliefs are exact, but the observation is not a complete state
+when the account is that full (about 8% of decisions in the recorded planner episodes).
 
 ## Costs and reward
 
@@ -144,11 +150,16 @@ return times 10⁶.
 the agent cannot see. For training, they are replaced by their expectation under the agent's
 belief, `Σ_c b_i(c) risk_i(c)` and `Σ_c b_i(c) salvage_i(c)`. Because the belief is the exact
 posterior, this has the same expected return for every policy, but much less variance. The closure
-cost and the agency cost are always charged as they happen. Evaluation always uses the realised cost.
+cost and the agency cost are always charged as they happen. Evaluation always uses the realised cost. This substitution is used only in the main (belief)
+setting. An agent that sees the true condition, or only its last inspection result, acts on
+information the belief does not describe, so for those agents (and the planners that teach them)
+the expectation would no longer leave the expected return unchanged; they are charged the realised
+costs instead.
 
 **Per-bridge reward.** `info["reward_vector"]` splits the same reward by bridge: each bridge is
-charged its own closure, risk and salvage, plus the cost of any work order on it. The vector sums to
-the scalar reward and is used by the decomposed Q-network.
+charged its own closure, risk and salvage, plus the cost of any work order on it; an invalid-action
+penalty is shared equally, and the optional shaping term is computed per bridge. The vector always
+sums to the scalar reward and is used by the decomposed Q-network.
 
 Optional potential-based shaping (`Φ(b) = −expected monthly risk`, with `Φ = 0` at the end) is
 available but off; it is never used in the comparisons.
@@ -251,8 +262,8 @@ argmax.
 - *no demonstrations:* learns from scratch, with ε starting at 1;
 - *shared network:* the same encoder with ordinary dueling heads, without the decomposition;
 - *flat network:* an MLP over the whole observation;
-- *vanilla DQN:* flat MLP, no masks (an infeasible action is penalised and replaced by defer),
-  no dueling, no double estimator, no demonstrations, hard target updates;
+- *vanilla DQN:* flat MLP, 1-step targets, no masks (an infeasible action is penalised and replaced
+  by defer), no dueling, no double estimator, no demonstrations, hard target updates;
 - *information ablations:* the true condition instead of the belief, the last inspection result
   instead of the belief, or no paid inspections. Each is warm-started from a planner that has the
   same information.
@@ -266,8 +277,11 @@ comparison.
 - **Common random numbers.** Every random draw in an episode (deterioration, closures, inspection
   noise, repair outcomes, initial condition) comes from the episode seed, so all policies face the
   same luck. Differences are paired episode by episode.
-- **200 test episodes.** RL results are averaged over training seeds per episode. The planner runs on
-  the same 200 episodes. 95% CIs come from the bootstrap; paired differences are reported against the
+- **200 test episodes.** RL results are averaged over training seeds per episode, and the planner runs
+  on the same 200 episodes. The 95% CIs in the main tables come from bootstrapping test episodes, so
+  they hold the trained agents fixed. `results/summary_seed_uncertainty.csv` gives the main comparisons
+  with CIs that also resample the training seeds. On the unseen networks, ten episodes share each
+  sampled network, so those CIs resample whole networks. Paired differences are reported against the
   main agent.
 - **Baselines.** The rule-based policies are grid-searched on separate tuning episodes. The
   untrained network is included to show that the learned behaviour comes from training.

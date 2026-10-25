@@ -2,7 +2,7 @@
 name = "bridgepulse-rl"
 version = "1.0.0"
 description = "Deep reinforcement learning for inspection and maintenance planning of a bridge network under partial observability and a funding limit"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 readme = "README.md"
 
 [tool.pytest.ini_options]

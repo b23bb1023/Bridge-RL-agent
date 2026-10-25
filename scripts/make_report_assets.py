@@ -101,6 +101,13 @@ def main() -> None:
         md.append(f"| {name} | {r['true_cost'] / 1e6:.2f} [{r['true_cost_lo'] / 1e6:.2f}, {r['true_cost_hi'] / 1e6:.2f}] "
                   f"| {diff} | {r['closure_months']:.1f} | {r['inspections']:.1f} |")
     (RESULTS / "table1.md").write_text("\n".join(md) + "\n")
+    # Keep the README's results table in step with the results.
+    readme = ROOT / "README.md"
+    start, end = "<!-- results-table:start -->", "<!-- results-table:end -->"
+    text = readme.read_text()
+    if start in text and end in text:
+        head, rest = text.split(start, 1)
+        readme.write_text(head + start + "\n" + "\n".join(md) + "\n" + end + rest.split(end, 1)[1])
 
     def cost(key):
         return s.loc[key, "true_cost"] if key in s.index else float("nan")

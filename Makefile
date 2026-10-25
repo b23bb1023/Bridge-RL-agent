@@ -17,6 +17,7 @@ help:
 	@echo "make train-sweep  optional: DQN retrained at other funding levels"
 	@echo "make evaluate     final test evaluation, stress scenarios and funding sweep"
 	@echo "make figures      export trained agents to models/, figures and report tables"
+	@echo "make report       compile report/main.pdf (needs LaTeX with IEEEtran)"
 	@echo "make smoke        a 3-minute end-to-end check"
 
 install:
@@ -57,7 +58,11 @@ figures:
 	$(PY) scripts/make_figures.py
 	$(PY) scripts/make_report_assets.py
 
-all: test calibrate demos train-main train-ablations evaluate figures
+report:
+	cd report && pdflatex -interaction=nonstopmode -halt-on-error main.tex >/dev/null && pdflatex -interaction=nonstopmode -halt-on-error main.tex >/dev/null
+	@echo "report/main.pdf rebuilt"
+
+all: test calibrate demos train-main train-ablations evaluate figures report
 
 smoke:
 	$(PY) -m pytest -x
