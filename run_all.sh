@@ -22,7 +22,7 @@ elapsed() { echo "    (elapsed $(( ($(date +%s) - START) / 60 )) min)"; }
 step "0/6  checks (Python, packages, unit tests) - using $JOBS parallel processes"
 "$PY" -c 'import sys; assert sys.version_info >= (3, 12), "Python 3.12+ needed, found " + sys.version'
 "$PY" -c 'import numpy, scipy, pandas, torch, gymnasium, sb3_contrib, matplotlib, yaml; print("    packages ok, torch", torch.__version__)'
-"$PY" -m pytest -q -p no:cacheprovider > run_logs/tests_before.log 2>&1 || true
+"$PY" -m pytest -p no:cacheprovider > run_logs/tests_before.log 2>&1 || true
 tail -1 run_logs/tests_before.log
 if ! grep -Eq "[0-9]+ passed" run_logs/tests_before.log || grep -Eq "[0-9]+ (failed|error)" run_logs/tests_before.log; then
   echo "error: unit tests failed; send run_logs/tests_before.log"; exit 1
@@ -63,7 +63,7 @@ step "4/6  models, figures, report numbers and README table"
 "$PY" scripts/make_report_assets.py 2>&1 | tee run_logs/report_assets.log
 
 step "5/6  unit tests again"
-"$PY" -m pytest -q -p no:cacheprovider > run_logs/tests_after.log 2>&1 || true
+"$PY" -m pytest -p no:cacheprovider > run_logs/tests_after.log 2>&1 || true
 tail -1 run_logs/tests_after.log
 
 step "6/6  packaging the outputs to send back"

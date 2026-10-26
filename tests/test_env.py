@@ -186,4 +186,5 @@ def test_speed(env_factory):
         if term:
             env.reset()
     rate = steps / (time.perf_counter() - start)
-    assert rate > 4000, f"environment too slow: {rate:.0f} steps/s"
+    # A sanity floor rather than a benchmark: typical machines run 4,000-10,000 steps/s.
+    assert rate > 1000, f"environment too slow: {rate:.0f} steps/s"

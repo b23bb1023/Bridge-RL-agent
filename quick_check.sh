@@ -14,7 +14,7 @@ cd "$TMP"
 echo "rehearsal in $TMP with $JOBS processes"
 
 "$PY" -c 'import sys; assert sys.version_info >= (3, 12), "Python 3.12+ needed, found " + sys.version'
-"$PY" -m pytest -q -p no:cacheprovider -x 2>&1 | tail -1
+"$PY" -m pytest -p no:cacheprovider -x 2>&1 | tail -1
 rm -f data/demos/planner_budget1_oracle.npz data/demos/planner_budget1_last_obs.npz
 for mode in oracle last_obs; do
   "$PY" scripts/make_demos.py --obs-mode "$mode" --episodes 2 --rollouts 2 --workers "$JOBS"
