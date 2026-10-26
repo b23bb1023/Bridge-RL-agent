@@ -60,26 +60,6 @@
     "run": "oracle/seed1"
   },
   {
-    "model": "ppo_seed0.zip",
-    "run": "ppo/seed0"
-  },
-  {
-    "model": "ppo_seed1.zip",
-    "run": "ppo/seed1"
-  },
-  {
-    "model": "ppo_seed2.zip",
-    "run": "ppo/seed2"
-  },
-  {
-    "model": "ppo_seed3.zip",
-    "run": "ppo/seed3"
-  },
-  {
-    "model": "ppo_seed4.zip",
-    "run": "ppo/seed4"
-  },
-  {
     "model": "dqn_pretrain_only_seed0.pt",
     "run": "pretrain_only/seed0"
   },
@@ -122,5 +102,25 @@
   {
     "model": "dqn_vanilla_seed1.pt",
     "run": "vanilla/seed1"
+  },
+  {
+    "model": "ppo_seed0.zip",
+    "run": "ppo/seed0"
+  },
+  {
+    "model": "ppo_seed1.zip",
+    "run": "ppo/seed1"
+  },
+  {
+    "model": "ppo_seed2.zip",
+    "run": "ppo/seed2"
+  },
+  {
+    "model": "ppo_seed3.zip",
+    "run": "ppo/seed3"
+  },
+  {
+    "model": "ppo_seed4.zip",
+    "run": "ppo/seed4"
   }
 ]

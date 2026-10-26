@@ -195,6 +195,23 @@ def main() -> None:
             m += macro(f"{name}Gap", money2(-r["diff_vs_main"]))
             m += macro(f"{name}GapLo", money2(-r["diff_hi"]))
             m += macro(f"{name}GapHi", money2(-r["diff_lo"]))
+    # Comparisons whose CIs also resample the training seeds (not only the test episodes).
+    seed_path = RESULTS / "summary_seed_uncertainty.csv"
+    if seed_path.exists():
+        su = pd.read_csv(seed_path)
+        names = {"DQN (ours)": "Main", "DQN, shared network": "Shared", "DQN, no demonstrations": "NoDemo",
+                 "DQN, offline pre-training only": "Pretrain", "DQN, rule demonstrations": "RuleDemo",
+                 "DQN, flat network": "Flat", "DQN, true condition": "Oracle", "DQN, last inspection only": "LastObs",
+                 "DQN, no extra inspections": "NoInsp", "Maskable PPO": "PPO", "Vanilla DQN": "Vanilla"}
+        for _, r in su.iterrows():
+            stem = names.get(r["policy"])
+            if stem is None:
+                continue
+            ref = "Rule" if r["reference"].startswith("Rule:") else "Planner"
+            # Saving over the reference (positive = our variant cheaper), CI over seeds and episodes.
+            m += macro(f"{stem}SeedSave{ref}", money2(-r["diff"]))
+            m += macro(f"{stem}SeedSave{ref}Lo", money2(-r["diff_hi"]))
+            m += macro(f"{stem}SeedSave{ref}Hi", money2(-r["diff_lo"]))
     main_row = s.loc["DQN (ours)"]
     m += macro("MainInsp", f"{main_row['inspections']:.1f}")
     m += macro("MainClosed", f"{main_row['closure_months']:.1f}")

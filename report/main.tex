@@ -95,54 +95,55 @@ which every policy faces the same random draws, so differences are paired, with 
 
 \begin{table}[t]
 \centering
-\caption{Ten-year cost on \Episodes{} test episodes (\$M, 95\% CI). $\Delta$: paired extra cost over our agent. Closed: bridge-months. Insp.: paid inspections. $^\dagger$sees the true condition.}
+\caption{Ten-year cost on \Episodes{} test episodes (\$M). CIs (95\%) resample test episodes, holding the trained agents fixed. $\Delta$: paired extra cost over our agent. Closed: bridge-months. Insp.: paid inspections. $^\dagger$sees the true condition.}
 \label{tab:main}
 \scriptsize
 \setlength{\tabcolsep}{2.5pt}
 \input{generated/table1.tex}
 \end{table}
 
-\section{Results}
-\textbf{Main result.} Over five seeds, the DQN's 10-year cost is \$\MainCost M \mbox{[\MainLo, \MainHi]}.
-That is \GainVsRule\% below the best tuned rule (\BestRule, \$\BestRuleCost M), a paired saving of
-\$\GainVsRuleAbs M \mbox{[\GainVsRuleLo, \GainVsRuleHi]} (Table~\ref{tab:main}). Averaging the five networks'
-Q-values gives \$\EnsembleCost M, \$\EnsembleGap M \mbox{[\EnsembleGapLo, \EnsembleGapHi]} better again. It
-matches its teacher: it is \$\GainVsPlanner M \mbox{[\GainVsPlannerLo, \GainVsPlannerHi]} cheaper than
-the planner. It needs \DQNms\,ms per decision instead of \Plannerms\,ms. With about as many
-repairs as the rule, it spends \$\MainAgency M instead of \$\RuleAgency M. It cuts structural risk from
-\$\RuleRisk M to \$\MainRisk M and the final restore cost from \$\RuleSalvage M to \$\MainSalvage M, at
-slightly more closure (\MainClosed{} vs \RuleClosed{} bridge-months).
-
-\textbf{What the gain comes from.} The gain is learned offline. Q-learning with the margin on the
-planner's episodes alone gives \$\PretrainCost M, within noise of the full agent. Online Q-learning holds that level while the margin lasts, and every seed
-degrades once it reaches zero (Fig.~\ref{fig:learning}); the best validation checkpoint is kept.
-The teacher matters: with rule demonstrations the agent only matches the rule (\$\RuleDemoCost M),
-and from scratch it costs \$\NoDemoCost M. The decomposition matters too: the undecomposed shared
-network costs \$\SharedCost M (+\SharedDiff\ \mbox{[\SharedLo, \SharedHi]}) and the flat MLP \$\FlatCost M.
-Maskable PPO (\$\PPOCost M) and vanilla DQN (\$\VanillaCost M) do not reach the rules.
-
-\textbf{Value of information} (Fig.~\ref{fig:info}a). Seeing the true condition is worth \$\OracleGap M
-\mbox{[\OracleGapLo, \OracleGapHi]}. Neither the belief nor paid inspections recover much of it: agents that
-see only the last inspection (\$\LastObsCost M) or cannot buy inspections (\$\NoInspCost M) are
-within noise of ours. Routine ratings are accurate here
-($\sigma{=}\RoutineSigma$), so the last rating and its age carry most of what the posterior knows.
-
-\textbf{Robustness} (Fig.~\ref{fig:info}b). Without retraining, the agent stays cheaper than the best
-rule under slower decay (+\SlowSaving) and faster decay (+\FastSaving), and by far under a 25\% funding
-cut (\$\CutOurs M vs \$\CutRule M). It is no better when decay is faster than its model expects
-(\UnmodSaving\ \mbox{[\UnmodLo, \UnmodHi]}). It is worse with noisier routine ratings (\$\NoisyOurs M vs
-\$\NoisyRule M) and on twenty unseen networks of real bridges (\$\UnseenOurs M vs \$\UnseenRule M). A
-policy trained on one network does not transfer, while the rules do by construction.
-
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/fig1_learning.pdf}
 \vspace{-14pt}
-\caption{Validation cost during training (mean, 95\% CI over seeds). Step 0 is after offline pre-training on the demonstrations; the jump at the end is where the margin reaches zero.}
+\caption{Validation cost during training (mean, 95\% CI over seeds). With demonstrations, step 0 is after offline pre-training; the rise at the end is where the margin reaches zero.}
 \label{fig:learning}
 \end{figure}
 
-\textbf{Limitations.} The agent is trained for one network (training across sampled networks is the
-next step); unit costs, the risk rate and the unmaintained factor are assumptions.
+\section{Results}
+\textbf{Main result.} Over five seeds, our agent costs \$\MainCost M \mbox{[\MainLo, \MainHi]} over ten
+years, \GainVsRule\% below the best tuned rule (\BestRule, \$\BestRuleCost M). The paired saving is
+\$\GainVsRuleAbs M \mbox{[\GainVsRuleLo, \GainVsRuleHi]} over test episodes, and \$\MainSeedSaveRule M
+\mbox{[\MainSeedSaveRuleLo, \MainSeedSaveRuleHi]} when the training seeds are resampled too. It is level with its teacher, the planner
+(\$\GainVsPlanner M \mbox{[\GainVsPlannerLo, \GainVsPlannerHi]} cheaper), at \DQNms\,ms per decision
+instead of \Plannerms\,ms. On as many repairs, it spends more than the rule (\$\MainAgency M vs
+\$\RuleAgency M) but cuts structural risk (\$\MainRisk M vs \$\RuleRisk M) and the final restore cost
+(\$\MainSalvage M vs \$\RuleSalvage M).
+
+\textbf{What matters} (Table~\ref{tab:main}, Fig.~\ref{fig:learning}). \emph{Sharing one network across
+bridges:} the flat MLP costs \$\FlatCost M, while the per-bridge variants beat the best rule unless
+tied to it by rule demonstrations. The price-of-money decomposition adds nothing on top: the plain shared network with the same
+demonstrations is the best agent (\$\SharedCost M, \$\SharedGap M \mbox{[\SharedGapLo, \SharedGapHi]}
+cheaper than ours). \emph{A teacher is not needed:} from scratch the agent reaches \$\NoDemoCost M
+(\$\NoDemoSeedSaveRule M \mbox{[\NoDemoSeedSaveRuleLo, \NoDemoSeedSaveRuleHi]} below the rule, two seeds)
+and is still improving at $3{\times}10^5$ steps. \emph{Demonstrations give the final level at once:}
+offline pre-training alone gives \$\PretrainCost M, and online Q-learning with the fading margin does not
+improve on it; once the margin reaches zero at the very end, several seeds get worse. Rule demonstrations tie the agent to the rule (\$\RuleDemoCost M). Maskable PPO
+(\$\PPOCost M) and vanilla DQN (\$\VanillaCost M) do not reach the rules.
+
+\textbf{Value of information} (Fig.~\ref{fig:info}a). Seeing the true condition is worth \$\OracleGap M
+\mbox{[\OracleGapLo, \OracleGapHi]}. Neither the belief nor paid inspections recover much of it: agents
+that see only the last inspection (\$\LastObsCost M) or cannot buy inspections (\$\NoInspCost M) are
+within noise of ours, because routine ratings are already accurate ($\sigma{=}\RoutineSigma$).
+
+\textbf{Robustness} (Fig.~\ref{fig:info}b). Without retraining, the agent stays cheaper than the best rule under slower decay (+\SlowSaving), faster decay (+\FastSaving) and a 25\% funding cut
+(\$\CutOurs M vs \$\CutRule M). There is no clear difference under decay faster than the model expects
+(\UnmodSaving\ \mbox{[\UnmodLo, \UnmodHi]}) or noisier routine ratings
+(\NoisySaving\ \mbox{[\NoisyLo, \NoisyHi]}). On twenty unseen networks of real bridges it is worse
+(\$\UnseenOurs M vs \$\UnseenRule M, CI over networks \mbox{[\UnseenLo, \UnseenHi]}): it does not
+transfer.
+
+
+\textbf{Limitations.} One training network; two seeds per ablation; assumed unit and risk costs.
 
 \end{document}

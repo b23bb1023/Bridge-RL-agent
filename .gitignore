@@ -20,3 +20,6 @@ report/*.out
 report/*.synctex.gz
 run_logs/
 outputs_for_review.zip
+
+# Evaluation cache (rebuilt automatically)
+results/episodes/planner_cache/

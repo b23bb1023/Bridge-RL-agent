@@ -1,4 +1,4 @@
 {
-  "DQN (ours)": 0.0006219503751102214,
-  "Lookahead planner (teacher)": 0.7485195002085069
+  "DQN (ours)": 0.00018973435120036206,
+  "Lookahead planner (teacher)": 0.3473059218764926
 }

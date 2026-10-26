@@ -2,23 +2,23 @@
 \toprule
 Policy & Cost \$M [95\% CI] & $\Delta$ vs ours & Closed & Insp. \\
 \midrule
-\textbf{DQN (ours)} & 8.28 [7.24, 9.51] & -- & 6 & 1.7 \\
-DQN (ours), 5-seed ensemble & 8.06 [7.09, 9.16] & \textminus{}0.22 & 5 & 0.7 \\
-Lookahead planner (teacher) & 8.61 [7.61, 9.82] & +0.33 & 6 & 4.2 \\
-DQN, offline pre-training only & 8.26 [7.28, 9.35] & \textminus{}0.02 & 6 & 1.0 \\
-DQN, rule demonstrations & 8.96 [8.11, 9.99] & +0.68 & 5 & 0.0 \\
-DQN, no demonstrations & 13.47 [12.32, 14.77] & +5.19 & 3 & 44.6 \\
-DQN, shared (undecomposed) net & 8.76 [7.47, 10.26] & +0.48 & 6 & 0.6 \\
-DQN, flat MLP & 10.84 [9.06, 12.85] & +2.56 & 10 & 2.0 \\
-Maskable PPO & 14.93 [13.11, 16.93] & +6.64 & 12 & 78.1 \\
-Vanilla DQN (no mask) & 159 [137, 182] & +151 & 88 & 71.3 \\
-DQN, last inspection only & 8.14 [7.20, 9.22] & \textminus{}0.14 & 5 & 0.5 \\
-DQN, no extra inspections & 8.41 [7.39, 9.55] & +0.13 & 6 & 0.0 \\
-DQN, true condition$^\dagger$ & 7.61 [6.58, 8.87] & \textminus{}0.67 & 5 & 0.1 \\
-Rule: condition-based & 9.37 [8.38, 10.56] & +1.08 & 6 & 0.0 \\
-Rule: entropy-triggered & 12.20 [10.60, 14.04] & +3.92 & 13 & 1.1 \\
-Rule: risk-greedy & 8.96 [8.11, 9.96] & +0.68 & 5 & 0.0 \\
-Rule: oracle threshold$^\dagger$ & 8.69 [7.78, 9.76] & +0.41 & 6 & 0.0 \\
+\textbf{DQN (ours)} & 8.32 [7.31, 9.45] & -- & 6 & 3.2 \\
+DQN (ours), 5-seed ensemble & 8.12 [7.12, 9.23] & \textminus{}0.20 & 5 & 0.7 \\
+Lookahead planner (teacher) & 8.61 [7.61, 9.82] & +0.30 & 6 & 4.2 \\
+DQN, offline pre-training only & 8.29 [7.28, 9.47] & \textminus{}0.03 & 6 & 0.5 \\
+DQN, rule demonstrations & 9.03 [8.15, 10.09] & +0.71 & 5 & 0.0 \\
+DQN, no demonstrations & 8.16 [7.33, 9.09] & \textminus{}0.16 & 4 & 19.2 \\
+DQN, shared (undecomposed) net & 7.90 [7.05, 8.84] & \textminus{}0.41 & 5 & 1.0 \\
+DQN, flat MLP & 10.21 [8.56, 12.17] & +1.89 & 9 & 3.3 \\
+Maskable PPO & 14.93 [13.11, 16.93] & +6.61 & 12 & 78.1 \\
+Vanilla DQN (no mask) & 18.08 [15.56, 20.9] & +9.76 & 14 & 67.9 \\
+DQN, last inspection only & 8.42 [7.41, 9.62] & +0.10 & 6 & 1.1 \\
+DQN, no extra inspections & 8.19 [7.17, 9.39] & \textminus{}0.13 & 5 & 0.0 \\
+DQN, true condition$^\dagger$ & 7.50 [6.50, 8.72] & \textminus{}0.82 & 6 & 0.1 \\
+Rule: condition-based & 9.37 [8.38, 10.56] & +1.05 & 6 & 0.0 \\
+Rule: entropy-triggered & 12.20 [10.60, 14.04] & +3.88 & 13 & 1.1 \\
+Rule: risk-greedy & 8.96 [8.11, 9.96] & +0.64 & 5 & 0.0 \\
+Rule: oracle threshold$^\dagger$ & 8.69 [7.78, 9.76] & +0.37 & 6 & 0.0 \\
 DQN, untrained & 301 [253, 351] & +292 & 106 & 40.0 \\
 Do nothing & 301 [253, 351] & +292 & 106 & 0.0 \\
 \bottomrule
